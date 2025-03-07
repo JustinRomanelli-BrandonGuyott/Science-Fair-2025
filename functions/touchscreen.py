@@ -3,52 +3,42 @@ from tkinter import ttk
 from PIL import Image, ImageTk
 from functions.LED_functions import red_led_off, green_led_off, green_led_on, yellow_led_off, yellow_led_on
 from functions.stepper_motor import open_window, close_window, power_on, stop
-from functions.power import set_speed
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 import multiprocessing as mp
 import os
 import time
 
-# TODO: CHANGE IMAGE FILE DIRECTORIES ONCE TESTING IS DONE WITH TOUCHSCREEN
-# TODO: Figure out what's going on with the speed buttons, and how to change the speed on the open/close functions.
-
+# This speed variable is not used to great capacity.
 speed: int = 1
 
-# Waits until the status.txt file is updated, then runs update_status(True).
+# Update the time (for statistics page). The TextUpdateHandler is not used to do anything, although it does exist.
+
 class TextUpdateHandler(FileSystemEventHandler):
     def on_modified(self, event):
         if event.src_path == "/home/brandon/Science_Fair_2025/status.txt":
             update_status(True)
 
 
-# Waits until the time.txt file is updated, then runs update_status(False).
 class TimeUpdateHandler(FileSystemEventHandler):
     def on_modified(self, event):
-        if event.src_path == "/home/brandon/Science_Fair_2025/time.txt":
+        if event.src_path == "/home/brandon/Science_Fair_2025/final_time.txt":
             update_status(False)
-
 
 # Final functions are below
 
 
-# Creates the Process for the touchscreen.
-# Returns: the Process for the touchscreen.
 def touchscreen_watchdog() -> mp.Process:
     p_touchscreen = mp.Process(target=tkinter_runner)
 
     p_touchscreen.start()
 
-    # TODO: TEMP
-    #open_window_test()
-    #read_write()
-    
     return p_touchscreen
 
-# The main application of the touchscreen.
 def tkinter_runner() -> None:
     # General
     global speed
+    global down_arrow_active
 
     # Main page
     global label_motion
@@ -57,11 +47,10 @@ def tkinter_runner() -> None:
 
     global panel_up_arrow
     global panel_down_arrow
-    global panel_plus_sign
-    global panel_minus_sign
     global panel_pause
     global panel_resume
     global panel_stats
+    global panel_settings
 
     global label_title_bar
     global label_status_bar
@@ -73,7 +62,7 @@ def tkinter_runner() -> None:
 
     global panel_x
 
-    # Set up and run the Observers to watch for when files are written to (to update the time).
+    down_arrow_active = False
 
     observer = Observer()
 
@@ -107,24 +96,6 @@ def tkinter_runner() -> None:
     mainframe = ttk.Frame(root)
     mainframe.grid(column=0, row=0, sticky=N + S + E + W)
 
-    # Statistics Button, opens up the statistics page
-
-    image_temp = Image.open("./imgs/statistics_clipart.png")
-    resized_image_temp = image_temp.resize((int(75 * 1.875), int(75 * 1.8)))
-    img_stats = ImageTk.PhotoImage(resized_image_temp)
-
-    panel_stats = Button(
-        mainframe,
-        image=img_stats,
-        command=open_stats_page,
-        borderwidth=0,
-        background=BKG_COLOR,
-        activebackground=BKG_COLOR,
-        activeforeground=BKG_COLOR,
-        relief=SUNKEN,
-    )
-    panel_stats.place(relx=0.04, rely=0.85, anchor=CENTER)
-
     # Title / Status Bars
 
     img_temp = Image.open("./imgs/title_bar.png")
@@ -157,7 +128,7 @@ def tkinter_runner() -> None:
     label_motion.place(anchor=CENTER, relx=0.2, rely=0.04)
 
     string_speed = StringVar()
-    string_speed.set("Speed")
+    string_speed.set("Operation")
     label_speed = Label(
         root,
         textvariable=string_speed,
@@ -168,7 +139,7 @@ def tkinter_runner() -> None:
     label_speed.place(anchor=CENTER, relx=0.49, rely=0.04)
 
     string_operation = StringVar()
-    string_operation.set("Operation")
+    string_operation.set("Settings")
     label_operation = Label(
         root,
         textvariable=string_operation,
@@ -177,19 +148,6 @@ def tkinter_runner() -> None:
         fg="white",
     )
     label_operation.place(anchor=CENTER, relx=0.775, rely=0.04)
-
-    # Status Label, unused.
-
-    # string_status = StringVar()
-    # string_status.set("Status: None")
-    # label_status = Label(
-    #     root,
-    #     textvariable=string_status,
-    #     font=("Arial", 44, "bold"),
-    #     bg="#992424",
-    #     fg="white",
-    # )
-    # label_status.place(x=10 * 1.875, y=556 * 1.8)
 
     # Motion Buttons
 
@@ -229,44 +187,6 @@ def tkinter_runner() -> None:
     )
     panel_down_arrow.grid(column=0, row=2, padx=(int(110 * 1.875), 0), pady=(30 * 1.8, 90 * 1.8))
 
-    # Speed Buttons
-
-    image_temp = Image.open("./imgs/plus_sign.png")
-    resized_image_temp = image_temp.resize((int(180 * 1.875), int(180 * 1.8)))
-    img_plus_sign = ImageTk.PhotoImage(resized_image_temp)
-
-    panel_plus_sign = Button(
-        mainframe,
-        image=img_plus_sign,
-        command=speed_up,
-        borderwidth=0,
-        background=BKG_COLOR,
-        activebackground=BKG_COLOR,
-        activeforeground=BKG_COLOR,
-        relief=SUNKEN,
-        width=180 * 1.875,
-        height=180 * 1.8,
-    )
-    panel_plus_sign.grid(column=1, row=1, padx=(int(110 * 1.875), int(110 * 1.875)), pady=(90 * 1.8, 30 * 1.8))
-
-    image_temp = Image.open("./imgs/minus_sign.png")
-    resized_image_temp = image_temp.resize((int(180 * 1.875), int(180 * 1.875)))
-    img_minus_sign = ImageTk.PhotoImage(resized_image_temp)
-
-    panel_minus_sign = Button(
-        mainframe,
-        image=img_minus_sign,
-        command=slow_down,
-        borderwidth=0,
-        background=BKG_COLOR,
-        activebackground=BKG_COLOR,
-        activeforeground=BKG_COLOR,
-        relief=SUNKEN,
-        width=180 * 1.875,
-        height=180 * 1.8,
-    )
-    panel_minus_sign.grid(column=1, row=2, padx=(int(110 * 1.875), int(110 * 1.875)), pady=(30 * 1.8, 90 * 1.8))
-
     # Pause / Play Buttons
 
     image_temp = Image.open("./imgs/pause_sign.png")
@@ -285,7 +205,7 @@ def tkinter_runner() -> None:
         width=180 * 1.875,
         height=180 * 1.8,
     )
-    panel_pause.grid(column=2, row=1, padx=(0, int(110 * 1.875)), pady=(90 * 1.8, 30 * 1.8))
+    panel_pause.grid(column=1, row=1, padx=(int(110 * 1.875), int(110 * 1.875)), pady=(90 * 1.8, 30 * 1.8))
 
     image_temp = Image.open("./imgs/resume_sign.png")
     resized_image_temp = image_temp.resize((int(180 * 1.875), int(180 * 1.8)))
@@ -303,7 +223,44 @@ def tkinter_runner() -> None:
         width=180 * 1.875,
         height=180 * 1.8,
     )
-    panel_resume.grid(column=2, row=2, padx=(0, int(110 * 1.875)), pady=(30 * 1.8, 90 * 1.8))
+    panel_resume.grid(column=1, row=2, padx=(int(110 * 1.875), int(110 * 1.875)), pady=(30 * 1.8, 90 * 1.8))
+
+    # Settings Buttons
+    
+    image_temp = Image.open("./imgs/statistics_sign.png")
+    resized_image_temp = image_temp.resize((int(180 * 1.875), int(180 * 1.8)))
+    img_stats = ImageTk.PhotoImage(resized_image_temp)
+
+    panel_stats = Button(
+        mainframe,
+        image=img_stats,
+        command=open_stats_page,
+        borderwidth=0,
+        background=BKG_COLOR,
+        activebackground=BKG_COLOR,
+        activeforeground=BKG_COLOR,
+        relief=SUNKEN,
+        width=180 * 1.875,
+        height=180 * 1.8,
+    )
+    panel_stats.grid(column=2, row=1, padx=(0, int(110 * 1.875)), pady=(90 * 1.8, 30 * 1.8))
+    
+    image_temp = Image.open("./imgs/gear_sign.png")
+    resized_image_temp = image_temp.resize((int(180 * 1.875), int(180 * 1.8)))
+    img_settings = ImageTk.PhotoImage(resized_image_temp)
+
+    panel_settings = Button(
+        mainframe,
+        image=img_settings,
+        borderwidth=0,
+        background=BKG_COLOR,
+        activebackground=BKG_COLOR,
+        activeforeground=BKG_COLOR,
+        relief=SUNKEN,
+        width=180 * 1.875,
+        height=180 * 1.8,
+    )
+    panel_settings.grid(column=2, row=2, padx=(0, int(110 * 1.875)), pady=(30 * 1.8, 90 * 1.8))
 
     # X Button (Statistics Page)
 
@@ -336,68 +293,49 @@ def tkinter_runner() -> None:
     root.mainloop()
 
 
-# Shows the main page. Goes alongside hide_stats() in close_stats_page().
+# Functions to update the touchscreen's display: from main to statistics or vice versa.
+
 def show_main() -> None:
     panel_up_arrow.grid(column=0, row=1, padx=(int(110 * 1.875), 0), pady=(90 * 1.8, 30 * 1.8))
     panel_down_arrow.grid(column=0, row=2, padx=(int(110 * 1.875), 0), pady=(30 * 1.8, 90 * 1.8))
-    panel_plus_sign.grid(column=1, row=1, padx=(int(110 * 1.875), int(110 * 1.875)), pady=(90 * 1.8, 30 * 1.8))
-    panel_minus_sign.grid(column=1, row=2, padx=(int(110 * 1.875), int(110 * 1.875)), pady=(30 * 1.8, 90 * 1.8))
-    panel_pause.grid(column=2, row=1, padx=(0, int(110 * 1.875)), pady=(90 * 1.8, 30 * 1.8))
-    panel_resume.grid(column=2, row=2, padx=(0, int(110 * 1.875)), pady=(30 * 1.8, 90 * 1.8))
-
-    panel_stats.place(x=0, y=0, relx=0.04, rely=0.85, anchor=CENTER)
+    panel_pause.grid(column=1, row=1, padx=(int(110 * 1.875), int(110 * 1.875)), pady=(90 * 1.8, 30 * 1.8))
+    panel_resume.grid(column=1, row=2, padx=(int(110 * 1.875), int(110 * 1.875)), pady=(30 * 1.8, 90 * 1.8))
+    panel_stats.grid(column=2, row=1, padx=(0, int(110 * 1.875)), pady=(90 * 1.8, 30 * 1.8))
+    panel_settings.grid(column=2, row=2, padx=(0, int(110 * 1.875)), pady=(30 * 1.8, 90 * 1.8))
 
     label_title_bar.place(x=-100 * 1.875, y=0, relx=0, rely=0)
     label_status_bar.place(x=-200 * 1.875, y=550 * 1.8, relx=0, rely=0)
-    #label_status.place(x=5 * 1.875, y=556 * 1.8, relx=0, rely=0)
     label_motion.place(anchor=CENTER, relx=0.2, rely=0.04)
     label_speed.place(anchor=CENTER, relx=0.49, rely=0.04)
     label_operation.place(anchor=CENTER, relx=0.775, rely=0.04)
 
 
-# Shows the statistics page. Goes alongside hide_main() in open_stats_page().
 def show_stats() -> None:
     panel_x.place(x=0, y=0, relx=0.025, rely=0.025)
     label_timer.place(x=0, y=0, relx=0.5, rely=0.5, anchor=CENTER)
 
-    # TODO: THIS IS TEMPORARY. REMOVE IT WHEN DONE TESTING
-    #time_window()
 
-
-# Hides the main page.
-# Places all items off the screen.
 def hide_main() -> None:
-    # Leave this commented for the duration of testing the function.
-    # Uncomment when a way to break out of the function has been made (exiting the stats page)
     panel_up_arrow.grid_forget()
     panel_down_arrow.grid_forget()
-    panel_plus_sign.grid_forget()
-    panel_minus_sign.grid_forget()
     panel_pause.grid_forget()
     panel_resume.grid_forget()
-
-    panel_stats.place(x=-200 * 1.875, y=-200 * 1.8, relx=0, rely=0)
+    panel_stats.grid_forget()
+    panel_settings.grid_forget()
 
     label_title_bar.place(relx=1.5, rely=1.5)
     label_status_bar.place(relx=1.5, rely=1.5)
-    #label_status.place(relx=1.5, rely=1.5)
+    label_status.place(relx=1.5, rely=1.5)
     label_motion.place(relx=1.5, rely=1.5)
     label_speed.place(relx=1.5, rely=1.5)
     label_operation.place(relx=1.5, rely=1.5)
 
 
-# Hides the stats page.
-# Places all items off the screen.
 def hide_stats() -> None:
     panel_x.place(x=-200 * 1.875, y=-200 * 1.8, relx=0, rely=0)
     label_timer.place(x=-200 * 1.875, y=-200 * 1.8, relx=0, rely=0)
 
 
-# Below are functions to switch between the main page and the statistics page.
-
-
-# TODO: Make a stats page quickly that just has calculated time.
-# Use hide_main() and show_main(), along with some kind of X button, to exit out
 def open_stats_page() -> None:
     hide_main()
     show_stats()
@@ -408,114 +346,34 @@ def close_stats_page() -> None:
     show_main()
 
 
-# The following functions were used for testing the Calculated Time metric.
-
-def start_timer() -> float:
-    return time.time()
-
-
-def end_timer() -> float:
-    return time.time()
-
-
-def time_window() -> None:
-    start_time: float = start_timer()
-    end_time: float = end_timer()
-    final_time: float = end_time - start_time
-
-    while final_time < 10:
-        end_time = end_timer()
-        final_time = end_time - start_time
-        string_timer.set(f"Calculated Time: {final_time:.3f} seconds")
-        label_timer.update()
-
-    print(f"Time elapsed: {end_time - start_time} seconds")
-    print(
-        f"  {end_time}\n- {start_time}\n------------------\n= {end_time - start_time}"
-    )
-    string_timer.set(
-        "Calculated Time: " + str(round(end_time - start_time, 2)) + " seconds"
-    )
-
-
-# The functions below are all temporary and are for testing.
-
+# These functions are used when one of the buttons that affects the window is pressed (all but statistics and settings)
 
 def raise_window() -> None:
-    global speed
-    #string_status.set(f"Status: Opening window with Speed {speed}")
-
-    #status_set(f"Status: Opening window with Speed {speed}")
 
     open_window()
 
-    red_led_off()
-    yellow_led_off()
-    green_led_on()
-
 
 def lower_window() -> None:
-    print("lower_window")
-    #string_status.set(f"Status: Closing window with Speed {speed}")
-
-    #status_set(f"Status: Closing window with Speed {speed}")
 
     close_window()
 
-    red_led_off()
-    yellow_led_off()
-    green_led_on()
-
-
-def speed_up() -> None:
-    
-    #if ("opening" in string_status.get().lower() or "closing" in string_status.get().lower()):
-    #    new_str = string_status.get()[0:-1] + str(2)
-#
- #       string_status.set(new_str)
-
-    set_speed(2)
-
-
-def slow_down() -> None:
-    
-    #if ("opening" in string_status.get().lower() or "closing" in string_status.get().lower()):
-    #    new_str = string_status.get()[0:-1] + str(2)
-#
-    #    string_status.set(new_str)
-
-    set_speed(1)
-
 
 def pause() -> None:
-
-    red_led_off()
-    yellow_led_on()
-    green_led_off()
-
-    #string_status.set("Status: Paused")
+    print("PAUSED")
     stop()
 
 
 def resume() -> None:
-    
-    red_led_off()
-    yellow_led_off()
-    green_led_on()
-    
-    #string_status.set("Status: Resumed")
-    
+    print("RESUMING")
     power_on()
 
-
-# Used to update the Calculated Time on the touchscreen.
+# The "is_status" part of this code is not used.
 def update_status(is_status: bool) -> None:
 
     global speed
+    global string_timer
 
     status_list: list[str]
-
-    # Check if the status is being updated (unused), or if the time is being updated (used).
 
     if is_status:
         with open("./status.txt", "r") as f:
@@ -536,12 +394,12 @@ def update_status(is_status: bool) -> None:
             print("The file is empty or does not contain any lines.")
 
     else:
-        with open("./time.txt", "r") as f:
+        with open("./final_time.txt", "r") as f:
             f.seek(0)
             status_list = f.readlines()
             f.close()
         
         if status_list and float(status_list[0]) < 1000000:
-            string_timer.set(f"Calculated Time: {str(round(float(status_list[0]), 3))}")
+            string_timer.set(f"Calculated Time: {str(round(float(status_list[0]), 4))}")
 
             label_timer.update()

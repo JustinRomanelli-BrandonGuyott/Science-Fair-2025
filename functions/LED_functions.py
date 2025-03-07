@@ -1,12 +1,9 @@
 import RPi.GPIO as GPIO
 
-# GPIO pins for the LEDs.
-
 RED = 27
 GREEN = 22
 YELLOW = 10
 
-# All of the functions below are for shorthand use to turn on or off an individual LED light.
 
 def red_led_on() -> None:
 

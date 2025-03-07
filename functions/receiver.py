@@ -1,10 +1,8 @@
-from functions.power import get_speed, set_speed
 from functions.stepper_motor import open_window, close_window, power_on, stop
 import evdev
 
 
 # Get all of the devices. If the RPi is found, then return it
-# The name of the IR Receiver is "gpio_ir_recv".
 def find_device() -> evdev.device.InputDevice:
     devices = [evdev.InputDevice(path) for path in evdev.list_devices()]
     
@@ -20,8 +18,6 @@ def find_device() -> evdev.device.InputDevice:
 def receive_command():
     ir_receiver = find_device()
 
-    # The previous event value (event.value).
-    # Used to prevent the same button from being pressed multiple times in a row.
     event_old: int = -1 
 
     while True:
@@ -40,12 +36,6 @@ def receive_command():
 
 # Interprets the command received from the remote to a function in code.
 def interpret_command(command: str) -> None:
-    if command == "Volume Up" and get_speed() < 2:
-        set_speed(2)
-
-    if command == "Volume Down" and get_speed() > 1:
-        set_speed(1)
-
     if command == "Channel Up":
         open_window()
 

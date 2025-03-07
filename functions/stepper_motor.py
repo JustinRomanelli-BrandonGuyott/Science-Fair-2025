@@ -1,25 +1,21 @@
 import pigpio
 import time
+from functions.emergency_stop import led_moving, led_stopped
 
-
-# DRV8825 
+# DRV8825 PIN INITIALIZATION
 DIR = 2     # Direction GPIO Pin
 STEP = 17   # Step GPIO Pin
 SLP = 15    # Sleep GPIO Pin (turns driver off)
 
-# Clockwise and Counter-Clockwise rotation, corresponding to down and up.
+# Clockwise and Counter-Clockwise direction variables
 down = 1
 up = 0
 
 # Establish connection to pigpiod daemon
 pi = pigpio.pi()
 
-# Sets up the motors.
 def setup_motors() -> None:
-    pi = pigpio.pi()
-
     # Microstep Resolution GPIO Pins
-    # Although these pins are not used outside of here, this allows for the gradual opening / closing of the window.
     MODE = (3, 4, 14)
     RESOLUTION = {'Full': (0, 0, 0),
                 'Half': (1, 0, 0),
@@ -32,71 +28,114 @@ def setup_motors() -> None:
         pi.write(MODE[i], RESOLUTION['Full'][i])
 
     # Sets the DRV8825 driver into an off position by default
+    pi.set_PWM_frequency(STEP, 800)  
     pi.write(SLP, 0)
 
 
-# Sets the frequency of the motor.
-# Only the frequencies 800 and 1000 are used.
+
+def safe_to_close():
+    with open("./safe_to_close.txt", "r") as safety_file:
+        status = safety_file.read()
+        safety_file.close()
+    if status == "True":
+        return True
+    elif status == "False":
+        return False
+
+def can_move_down():
+    with open("./can_move_down.txt", "r") as cmd_file:
+        status = cmd_file.read()
+        cmd_file.close()
+    if status == "True":
+        return True
+    elif status == "False":
+        return False
+
+def can_move_up():
+    with open("./can_move_up.txt", "r") as cmu_file:
+        status = cmu_file.read()
+        cmu_file.close()
+    if status == "True":
+        return True
+    elif status == "False":
+        return False
+
+# DEPRECATED
 def set_frequency(frequency) -> None:
     pi.set_PWM_frequency(STEP, frequency)  
 
-
-# Provides power to the stepper motors, allowing them to move.
 def power_on() -> None:
-    pi.write(SLP, 1)
-    pi.set_PWM_dutycycle(STEP, 128)
-    print("P-ON")
+    if (pi.read(DIR)):
+        direction = "down"
+    elif (not(pi.read(DIR))):
+        direction = "up"
+
+    if (not(can_move_up()) and direction == "up"):  # Prevents from going up when fully opened
+        print("ERROR: Cannot move further up.")
+    elif (not(can_move_down()) and direction == "down"): # Prevents from going down when fully closed
+        print("ERROR: Cannot move further down.")
+    elif (not(safe_to_close()) and direction == "down"): # Prevents from going down if an object is in the way
+        print("ERROR: Object in the way of closing.")
+    else:
+        if not(pi.read(SLP)):   # This is to prevent multiple power on commands at the same time
+            led_moving()
+            pi.write(SLP, 1)
+            pi.set_PWM_frequency(STEP, 800)
+            pi.set_PWM_dutycycle(STEP, 128)
+            print("P-ON")
 
 
-# Cuts the power to the stepper motors, forcing them to stop.
 def stop() -> None:
     pi.set_PWM_dutycycle(STEP, 0)
+    pi.set_PWM_frequency(STEP, 0)
     pi.write(SLP, 0)
     print("P-OFF")
+    led_stopped()
 
 
-# Opens the window.
-# Note: pi.read(6) reads the upper limit switch.
 def open_window() -> None:
-    print(pi.read(6))
+    pi.write(DIR, up)
+    print("Opening   window...")
+    power_on()
 
-    # Only run if the window is not already at the top.
-    if not(pi.read(6)):
-        print("Hello")
-        pi.write(DIR, up)
-        power_on()
+    with open("./time.txt", "w") as f:
+        f.seek(0)
+        f.write(str(time.time()))
+        f.close()
 
-        start_time = time.time()
-
-        # Keep opening until the upper limit switch is hit, then turn off the motors.
-        while not(pi.read(6)):
-            pass
-        stop()
-
-        # Write the time that it took to time.txt.
-        end_time = time.time()
-        delta_time = end_time - start_time
-        with open("./time.txt", "w+") as f:
-            f.write(str(delta_time))
-        
-
-# Closes the window.
-# Note: pi.read(24) reads the lower limit switch.
-# Note: The logic here is the same as for open_window(), only with the lower limit switch used instead of the upper limit switch. Refer to comments there for explanations.
+        #start_time = time.time()
+        #while not(pi.read(6)):
+        #    pass
+        #stop()
+        #end_time = time.time()
+        #delta_time = end_time - start_time
+        #with open("./time.txt", "w+") as f:
+        #    f.write(str(delta_time))
+        # Rewrite calculated time using a different script
+        # Start it here, log into a file
+        # In LS Process, when limit switch is pressed log time
+        # Then calculate delta time
+    
+    
 def close_window() -> None:
-    print(pi.read(24))
-    if not(pi.read(24)):
-        print("Hello")
-        pi.write(DIR, down)
-        power_on()
+    pi.write(DIR, down)
+    print("Closing window...")
+    power_on()
 
-        start_time = time.time()
+    with open("./time.txt", "w") as f:
+        f.seek(0)
+        f.write(str(time.time()))
+        f.close()
 
-        while not(pi.read(24)):
-            pass
-        stop()
+        #start_time = time.time()
+        #with open("./time.txt", "w+") as f:
+        #    f.write(str(start_time))
 
-        end_time = time.time()
-        delta_time = end_time - start_time
-        with open("./time.txt", "w+") as f:
-            f.write(str(delta_time))
+
+        # NOTE: FOR LIMIT SWITCH CODE
+
+        #end_time = time.time()
+        #delta_time = end_time - start_time
+        #with open("./time.txt", "w+") as f:
+        #    f.write(str(delta_time))
+        # SEE ABOVE FOR PLANNED ALGORITHM
